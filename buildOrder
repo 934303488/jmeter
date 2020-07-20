@@ -1,0 +1,114 @@
+package src.cos.org.apache.jmeter.cos.functions;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.jmeter.engine.util.CompoundVariable;
+import org.apache.jmeter.functions.AbstractFunction;
+import org.apache.jmeter.functions.InvalidVariableException;
+import org.apache.jmeter.samplers.SampleResult;
+import org.apache.jmeter.samplers.Sampler;
+import org.apache.log4j.Logger;
+
+import java.net.InetAddress;
+import java.text.NumberFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class buildOrderId extends AbstractFunction {
+    private static final String KEY = "__buildOrderId";//函数名
+    private static final List<String> desc = new LinkedList<>();
+    private static final String PATTERN = "yyyyMMddHHmmssSSS";
+    private static final String IP_AFTER_TWO;
+    private static final char IP_SPACER = '.';
+
+    /***
+     *获取时间
+     */
+    private static String getNow(String pattern) {
+        return new SimpleDateFormat(pattern).format(new Date());
+    }
+
+
+    private static String formatNumber(long number, int digits) {
+        NumberFormat nf = NumberFormat.getInstance();
+
+        nf.setMaximumIntegerDigits(digits);
+        nf.setMinimumIntegerDigits(digits);
+        nf.setGroupingUsed(false); // 去除分组
+        return nf.format(number);
+    }
+
+
+
+    /***
+     * 获取ip
+     */
+
+    static {
+        String ip;
+        try {
+
+            InetAddress inetAddress = InetAddress.getLocalHost();
+            ip = inetAddress.getHostAddress().toString();
+
+            ip = ip.substring(ip.lastIndexOf(IP_SPACER) + 1);
+            ip = formatNumber(Long.valueOf(ip), 2); // 获取IP地址后两位
+        } catch (Exception e) { // 如果报错采用随机生成两位数
+            System.out.print("can not get ip address");
+
+            Random random = new Random(UUID.randomUUID().toString().hashCode());
+            int randomNum = random.nextInt(99);
+
+            ip = formatNumber(randomNum, 2);
+        }
+        IP_AFTER_TWO = ip;
+    }
+
+    static final AtomicInteger SEQ_ATOMIC_INTEGER = new AtomicInteger(1);
+
+    /***
+     * 获取序列
+     */
+    static int getSeq() {
+        int result = SEQ_ATOMIC_INTEGER.incrementAndGet();
+        if (result <= 999) {
+            return result;
+        } else {
+            SEQ_ATOMIC_INTEGER.set(1);
+            return 1;
+        }
+    }
+
+
+
+
+
+    @Override
+    public String execute(SampleResult previousResult, Sampler currentSampler) throws InvalidVariableException {
+        StringBuilder buffer = new StringBuilder();
+
+        String date = getNow(PATTERN);
+        buffer.append(date).append(IP_AFTER_TWO).append(formatNumber(getSeq(), 3)).append(127)
+                .append(StringUtils.EMPTY);
+        return buffer.toString();
+    }
+
+    @Override
+    public void setParameters(Collection<CompoundVariable> parameters) throws InvalidVariableException {
+//        checkMinParameterCount(parameters, 1);
+//        values = parameters.toArray();
+    }
+    
+    //函数名
+    @Override
+    public String getReferenceKey() {
+        return KEY;
+    }
+    
+    //参数说明
+    @Override
+    public List<String> getArgumentDesc() {
+        return desc;
+    }
+
+}
